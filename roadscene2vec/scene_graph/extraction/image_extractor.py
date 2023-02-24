@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 '''RealExtractor initializes relational settings and creates an ImageSceneGraphSequenceGenerator object to extract scene graphs using raw image data.'''
 class RealExtractor(ex):
-    def __init__(self, config, dataset_type=None):
+    def __init__(self, config):
         super(RealExtractor, self).__init__(config) 
 
         # self.input_path = self.conf.location_data['input_path']
@@ -43,10 +43,7 @@ class RealExtractor(ex):
         self.coco_class_names += MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]).get('stuff_classes')
 
         # bev setup
-        if dataset_type:
-            self.bev = bev.BEV(config.image_settings['BEV_PATH'] + f"{dataset_type.lower()}_bev.json", mode='deploy')
-        else:
-            self.bev = bev.BEV(config.image_settings['BEV_PATH'], mode='deploy')
+        self.bev = bev.BEV(config.image_settings['BEV_PATH'], mode='deploy')
 
 
     '''Load scenegraphs using raw image frame tensors'''

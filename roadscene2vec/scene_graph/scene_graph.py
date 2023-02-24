@@ -21,12 +21,12 @@ import cv2
 class SceneGraph:
     
     #graph can be initialized with a framedict containing raw Carla data to load all objects at once
-    def __init__(self, relation_extractor, framedict= None, framenum=None, bounding_boxes = None, segmentation=None, bev = None, coco_class_names=None, platform='carla', bottom_crop=100):
+    def __init__(self, relation_extractor, framedict= None, framenum=None, bounding_boxes = None, segmentation=None, bev = None, coco_class_names=None, platform='carla', config=None):
         #configure relation extraction settings
         self.relation_extractor = relation_extractor
         
         self.platform = platform
-        self.bottom_crop = bottom_crop
+        self.config = config
         
         if self.platform == "carla":
             self.g = nx.MultiDiGraph() #initialize scenegraph as networkx graph
@@ -156,7 +156,7 @@ class SceneGraph:
             attr = {'left': box[0], 'top': box[1], 'right': box[2], 'bottom': box[3]}
             
             # exclude vehicle dashboard
-            if attr['top'] >= bev.params['height'] - self.bottom_crop: continue;
+            if attr['top'] >= bev.params['height'] - self.config.image_settings['BOTTOM_CROPPED']: continue;
             
 
             # filter traffic participants
