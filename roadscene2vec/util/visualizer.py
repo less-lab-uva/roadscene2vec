@@ -58,7 +58,7 @@ def get_bbox(extractor, frame):
 
 def get_scenegraph(extractor, bbox, bev):
   scenegraph = SceneGraph(extractor.relation_extractor,   
-                          bounding_boxes=bbox, 
+                          bounding_boxes=bbox,
                           bev=bev,
                           coco_class_names=extractor.coco_class_names, 
                           platform=extractor.dataset_type)

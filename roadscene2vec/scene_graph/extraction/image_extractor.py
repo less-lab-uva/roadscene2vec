@@ -2,6 +2,7 @@ import os
 import pdb
 import sys
 from pathlib import Path
+import pickle
 
 import cv2
 
@@ -21,14 +22,14 @@ from tqdm import tqdm
 
 '''RealExtractor initializes relational settings and creates an ImageSceneGraphSequenceGenerator object to extract scene graphs using raw image data.'''
 class RealExtractor(ex):
-    def __init__(self, config):
+    def __init__(self, config, dataset_type=None):
         super(RealExtractor, self).__init__(config) 
 
-        self.input_path = self.conf.location_data['input_path']
-        self.dataset = ds.SceneGraphDataset(self.conf)
+        # self.input_path = self.conf.location_data['input_path']
+        # self.dataset = ds.SceneGraphDataset(self.conf)
 
-        if not os.path.exists(self.input_path):
-            raise FileNotFoundError(self.input_path)
+        # if not os.path.exists(self.input_path):
+        #     raise FileNotFoundError(self.input_path)
 
         # detectron setup
         model_path = 'COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml'
@@ -40,7 +41,10 @@ class RealExtractor(ex):
         self.predictor = DefaultPredictor(self.cfg)
 
         # bev setup
-        self.bev = bev.BEV(config.image_settings['BEV_PATH'], mode='deploy')
+        if dataset_type:
+            self.bev = bev.BEV(config.image_settings['BEV_PATH'] + f"{dataset_type.lower()}_bev.json", mode='deploy')
+        else:
+            self.bev = bev.BEV(config.image_settings['BEV_PATH'], mode='deploy')
 
 
     '''Load scenegraphs using raw image frame tensors'''
@@ -107,7 +111,7 @@ class RealExtractor(ex):
                 sequence_tensor[frame_num] = im 
                 acc_number += 1
         return sequence_tensor
-        
+
     def get_bounding_box_annotated_image(self, im):
         v = visualizer.Visualizer(im[:, :, ::-1], 
             MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), 
