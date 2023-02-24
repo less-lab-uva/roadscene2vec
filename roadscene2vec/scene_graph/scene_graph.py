@@ -13,12 +13,15 @@ import pandas as pd
 import torch
 import math
 from collections import defaultdict
+import numpy as np
+import copy
+import cv2
 
 '''Create scenegraph using raw Carla json frame data or raw image data'''
 class SceneGraph:
     
     #graph can be initialized with a framedict containing raw Carla data to load all objects at once
-    def __init__(self, relation_extractor, framedict= None, framenum=None, bounding_boxes = None, bev = None, coco_class_names=None, platform='carla'):
+    def __init__(self, relation_extractor, framedict= None, framenum=None, bounding_boxes = None, segmentation=None, bev = None, coco_class_names=None, platform='carla'):
         #configure relation extraction settings
         self.relation_extractor = relation_extractor
         
@@ -60,13 +63,92 @@ class SceneGraph:
             self.relation_extractor.extract_relative_lanes(self) 
     
             # convert bounding boxes to nodes and build relations.
-            boxes, labels, image_size = bounding_boxes
-            self.get_nodes_from_bboxes(bev, boxes, labels, coco_class_names)
+            if len(bounding_boxes) == 2:
+                bounding_boxes = bounding_boxes[0]
+
+            boxes, labels, image_size, pred_masks = bounding_boxes
+            seg = segmentation
+
+            self.get_nodes_from_bboxes(bev, boxes, seg, labels, coco_class_names, pred_masks)
             self.relation_extractor.extract_semantic_relations(self)
 
+    # [CM]: Super fast method for padding a bitmask
+    def getPadding(self, arr, n_pad):
+        # accumulated padding
+        ret = np.zeros(arr.shape)
+        # translate entire matrix in each direction
+        for param in [(n_pad,1),(-n_pad,1),(n_pad,0),(-n_pad,0)]:
+            rl = copy.deepcopy(arr)
+            # incrementally increase pad size, combine results
+            for i in range(1, n_pad + 1):
+                # shift array elements in one direction
+                rl = np.roll(rl, np.sign(param[0]), axis=param[1])
+                # values roll to opposing side, so reset to false
+                val = 0 if np.sign(param[0]) == 1 else -1
+                if param[1] == 1:
+                    rl[:,val] = False
+                else:
+                    rl[val,:] = False
+                # compute all newly covered pixels from transformation
+                # determines overlap and then excludes overlap from result
+                elems = np.logical_xor(rl, np.logical_and(arr, rl))
+                # accumulate new pixels
+                ret = np.logical_or(ret, elems)
+        return ret
 
-    def get_nodes_from_bboxes(self, bev, boxes, labels, coco_class_names):
-        for idx, (box, label) in enumerate(zip(boxes, labels)):
+
+    def get_seg_masks(self, seg_info):
+        seg = seg_info[0].cpu().detach().numpy()
+        info = seg_info[1]
+        d = {}
+        for item in info:
+            if item['category_id'] not in d:
+                d[item['category_id']] = [item['id']]
+            else:
+                d[item['category_id']].append(item['id'])
+        masks = []
+        for item in info:
+            mask = np.where(seg == item['id'], True, False)
+            masks.append(mask)
+        return masks
+
+
+    # [CM]: Given a mask, compute all neighboring classes in segmented space
+    def get_seg_region(self, seg_info, mask):
+        segdata = seg_info[1]
+        seg_masks = self.get_seg_masks(seg_info)
+
+        mask = mask.cpu().detach().numpy()
+        mask = self.getPadding(mask, 5)
+
+        # these are just detectron2 object/background classes
+        things = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush', 'things', 'banner', 'blanket', 'bridge', 'cardboard', 'counter', 'curtain', 'door-stuff', 'floor-wood', 'flower', 'fruit', 'gravel', 'house', 'light', 'mirror-stuff', 'net', 'pillow', 'platform', 'playingfield', 'railroad', 'river', 'road', 'roof', 'sand', 'sea', 'shelf', 'snow', 'stairs', 'tent', 'towel', 'wall-brick', 'wall-stone', 'wall-tile', 'wall-wood', 'water', 'window-blind', 'window', 'tree', 'fence', 'ceiling', 'sky', 'cabinet', 'table', 'floor', 'pavement', 'mountain', 'grass', 'dirt', 'paper', 'food', 'building', 'rock', 'wall', 'rug']
+        numlist = list(range(len(things)))
+        stuff = ['things', 'banner', 'blanket', 'bridge', 'cardboard', 'counter', 'curtain', 'door-stuff', 'floor-wood', 'flower', 'fruit', 'gravel', 'house', 'light', 'mirror-stuff', 'net', 'pillow', 'platform', 'playingfield', 'railroad', 'river', 'road', 'roof', 'sand', 'sea', 'shelf', 'snow', 'stairs', 'tent', 'towel', 'wall-brick', 'wall-stone', 'wall-tile', 'wall-wood', 'water', 'window-blind', 'window', 'tree', 'fence', 'ceiling', 'sky', 'cabinet', 'table', 'floor', 'pavement', 'mountain', 'grass', 'dirt', 'paper', 'food', 'building', 'rock', 'wall', 'rug']
+        numlist2 = list(range(len(stuff)))
+
+        labels1 = dict(zip(numlist, things))
+        labels2 = dict(zip(numlist2, stuff))
+
+        names = []
+        for item in segdata:
+            name = ""
+            if item['isthing']:
+                name = labels1[item['category_id']]
+            else:
+                name = labels2[item['category_id']]
+            names.append(name)
+
+        overlap_classes = []
+        for seg, name in zip(seg_masks, names):
+            res = np.sum(np.logical_and(seg, mask))
+            if res:
+                overlap_classes.append(name)
+        return overlap_classes
+
+
+    def get_nodes_from_bboxes(self, bev, boxes, seg, labels, coco_class_names, pred_masks):
+        for idx, (box, label, mask) in enumerate(zip(boxes, labels, pred_masks)):
             box = box.cpu().numpy().tolist()
             class_name = coco_class_names[label]
             #import pdb; pdb.set_trace()
@@ -107,15 +189,19 @@ class SceneGraph:
             attr['rel_location_x'] = attr['location_x'] - self.egoNode.attr['location_x']           # x position relative to ego (neg left, pos right)
             attr['rel_location_y'] = attr['location_y'] - self.egoNode.attr['location_y']           # y position relative to ego (neg vehicle ahead of ego)
             attr['distance_abs'] = math.sqrt(attr['rel_location_x']**2 + attr['rel_location_y']**2) # absolute distance from ego
-            #import pdb; pdb.set_trace()
-            node = Node('%s_%d' % (actor_type, idx), attr, actor_type, actor_value)
-            
-            # add vehicle to graph
-            self.add_node(node) #change
 
+            # [CM]: Get all neighboring object classes
+            attr['seg_regions'] = self.get_seg_region(seg, mask)
+            attr['mask'] = mask
+
+            # [CM]: Construct and add node to graph
+            # TODO filter based on location/size of node? ex:
+            # AREA_THRESH = 7500
+            # if 'road' in attr['seg_regions'] and np.sum(mask.cpu().detach().numpy().astype(np.uint8)) > AREA_THRESH:
+            node = Node('%s_%d' % (actor_type, idx), attr, actor_type, actor_value)
+            self.add_node(node)  # change
             # add lane vehicle relations to graph
             self.relation_extractor.add_mapping_to_relative_lanes(self, node)
-
 
     def add_node(self, node):
         '''Add a single node to graph. node can be any hashable datatype including objects'''
@@ -126,6 +212,8 @@ class SceneGraph:
             color = 'green'
         elif 'lane' in node.name.lower():
             color = 'yellow'
+        elif 'root' in node.name.lower():
+            color = 'magenta'
         self.g.add_node(node, attr=node.attr, label=node.name, style='filled', fillcolor=color)
 
 
