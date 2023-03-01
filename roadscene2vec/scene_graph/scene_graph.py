@@ -193,7 +193,7 @@ class SceneGraph:
 
             # [CM]: Get all neighboring object classes
             attr['seg_regions'] = self.get_seg_region(seg, mask)
-            attr['mask'] = mask
+            attr['mask'] = mask.cpu().numpy()
 
             # [CM]: Construct and add node to graph
             # TODO filter based on location/size of node? ex:
