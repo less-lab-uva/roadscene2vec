@@ -5,18 +5,18 @@ import pickle
 
 import cv2
 
-sys.path.append(str(Path("../../")))
+# sys.path.append(str(Path("../../")))
 from os.path import isfile, join
-import roadscene2vec.data.dataset as ds
-from roadscene2vec.scene_graph.extraction.extractor import Extractor as ex
-from roadscene2vec.scene_graph.scene_graph import SceneGraph
+import roadscene2vec.roadscene2vec.data.dataset as ds
+from roadscene2vec.roadscene2vec.scene_graph.extraction.extractor import Extractor as ex
+from roadscene2vec.roadscene2vec.scene_graph.scene_graph import SceneGraph
 
 from detectron2.engine import DefaultPredictor
 from detectron2.data import MetadataCatalog
 from detectron2.utils import visualizer 
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
-from roadscene2vec.scene_graph.extraction.bev import bev
+from roadscene2vec.roadscene2vec.scene_graph.extraction.bev import bev
 from tqdm import tqdm
 
 '''RealExtractor initializes relational settings and creates an ImageSceneGraphSequenceGenerator object to extract scene graphs using raw image data.'''

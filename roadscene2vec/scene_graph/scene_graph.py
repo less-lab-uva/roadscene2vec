@@ -4,9 +4,9 @@ matplotlib.use("Agg")
 import networkx as nx
 import sys
 from pathlib import Path
-sys.path.append(str(Path("../../")))
+# sys.path.append(str(Path("../../")))
 #from roadscene2vec.scene_graph.relation_extractor import Relations, ActorType, RELATION_COLORS 
-from roadscene2vec.scene_graph.nodes import Node
+from roadscene2vec.roadscene2vec.scene_graph.nodes import Node
 #from roadscene2vec.scene_graph.nodes import Node
 from networkx.drawing import nx_pydot
 import pandas as pd
