@@ -4,9 +4,9 @@ matplotlib.use("Agg")
 import networkx as nx
 import sys
 from pathlib import Path
-sys.path.append(str(Path("../../")))
+# sys.path.append(str(Path("../../")))
 #from roadscene2vec.scene_graph.relation_extractor import Relations, ActorType, RELATION_COLORS 
-from roadscene2vec.scene_graph.nodes import Node
+from roadscene2vec.roadscene2vec.scene_graph.nodes import Node
 #from roadscene2vec.scene_graph.nodes import Node
 from networkx.drawing import nx_pydot
 import pandas as pd
@@ -193,7 +193,7 @@ class SceneGraph:
 
             # [CM]: Get all neighboring object classes
             attr['seg_regions'] = self.get_seg_region(seg, mask)
-            attr['mask'] = mask
+            attr['mask'] = mask.cpu().numpy()
 
             # [CM]: Construct and add node to graph
             # TODO filter based on location/size of node? ex:

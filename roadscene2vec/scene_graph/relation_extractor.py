@@ -7,8 +7,8 @@ import math
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path("../../")))
-from roadscene2vec.scene_graph.nodes import Node
+# sys.path.append(str(Path("../../")))
+from roadscene2vec.roadscene2vec.scene_graph.nodes import Node
 #from roadscene2vec.scene_graph.nodes import ObjectNode
 
 
