@@ -36,7 +36,7 @@ class RealExtractor(ex):
         self.cfg.merge_from_file(model_zoo.get_config_file(model_path))
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self.cfg.MODEL.DEVICE=device
-        self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
+        self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = config.image_settings['DETECTRON2_CONFIDENCE']  # set threshold for this model
         self.cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(model_path)
         self.predictor = DefaultPredictor(self.cfg)
 
